@@ -91,6 +91,7 @@ def main(result_folder: str, config_json: str) -> None:
                         actions[i] = parsed_actions[i]
 
                 messages = []
+                tot = cnt = 0
                 for o, u, a, image in zip(
                     observations, urls, actions, image_observations
                 ):
@@ -101,11 +102,14 @@ def main(result_folder: str, config_json: str) -> None:
                         }
                     )
                     messages.append({"assistant": a})
+                    tot += len(a)
+                    cnt+=1
 
                 all_data[f"example_{task_id}"] = {
                     **data_configs[task_id],
                     "messages": messages,
                     "success": results.get(task_id, False),
+                    "average_reponse_length": tot/(cnt+0.0001)
                 }
 
             except Exception as e:

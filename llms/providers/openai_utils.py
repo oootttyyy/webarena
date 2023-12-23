@@ -7,10 +7,15 @@ import os
 import random
 import time
 from typing import Any
+import litellm
+from litellm import completion
+from vertexai.preview.generative_models import GenerativeModel
+from huggingface_hub import login
+
+
 
 import aiolimiter
 import openai
-import openai.error
 from tqdm.asyncio import tqdm_asyncio
 
 
@@ -20,7 +25,7 @@ def retry_with_exponential_backoff(  # type: ignore
     exponential_base: float = 2,
     jitter: bool = True,
     max_retries: int = 3,
-    errors: tuple[Any] = (openai.error.RateLimitError,),
+    errors: tuple[Any] = (openai.RateLimitError,),
 ):
     """Retry a function with exponential backoff."""
 
@@ -75,12 +80,12 @@ async def _throttled_openai_completion_acreate(
                     max_tokens=max_tokens,
                     top_p=top_p,
                 )
-            except openai.error.RateLimitError:
+            except openai.RateLimitError:
                 logging.warning(
                     "OpenAI API rate limit exceeded. Sleeping for 10 seconds."
                 )
                 await asyncio.sleep(10)
-            except openai.error.APIError as e:
+            except openai.APIError as e:
                 logging.warning(f"OpenAI API error: {e}")
                 break
         return {"choices": [{"message": {"content": ""}}]}
@@ -170,14 +175,14 @@ async def _throttled_openai_chat_completion_acreate(
     async with limiter:
         for _ in range(3):
             try:
-                return await openai.ChatCompletion.acreate(  # type: ignore
+                return await openai.chat.completions.acreate(  # type: ignore
                     model=model,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     top_p=top_p,
                 )
-            except openai.error.RateLimitError:
+            except openai.RateLimitError:
                 logging.warning(
                     "OpenAI API rate limit exceeded. Sleeping for 10 seconds."
                 )
@@ -185,7 +190,7 @@ async def _throttled_openai_chat_completion_acreate(
             except asyncio.exceptions.TimeoutError:
                 logging.warning("OpenAI API timeout. Sleeping for 10 seconds.")
                 await asyncio.sleep(10)
-            except openai.error.APIError as e:
+            except openai.APIError as e:
                 logging.warning(f"OpenAI API error: {e}")
                 break
         return {"choices": [{"message": {"content": ""}}]}
@@ -252,8 +257,8 @@ def generate_from_openai_chat_completion(
         )
     openai.api_key = os.environ["OPENAI_API_KEY"]
     openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
-
-    response = openai.ChatCompletion.create(  # type: ignore
+    
+    response = openai.chat.completions.create(  # type: ignore
         model=model,
         messages=messages,
         temperature=temperature,
@@ -261,6 +266,52 @@ def generate_from_openai_chat_completion(
         top_p=top_p,
         stop=[stop_token] if stop_token else None,
     )
+    answer: str = response.choices[0].message.content
+    return answer
+
+@retry_with_exponential_backoff
+def generate_from_openai_chat_api_completion(
+    messages: list[dict[str, str]],
+    model: str,
+    temperature: float,
+    max_tokens: int,
+    top_p: float,
+    context_length: int,
+    stop_token: str | None = None,
+) -> str:
+    openai.api_key = os.environ["OPENAI_API_KEY"]
+    openai.organization = os.environ.get("OPENAI_ORGANIZATION", "")
+    
+    litellm.vertex_project = os.environ.get("VERTEX_PROJECT","")
+    litellm.vertex_location = os.environ.get("VERTEX_LOCATION","")
+    
+    response = completion(
+        model=model,
+        messages=messages,
+        # temperature=temperature,
+        # max_tokens=max_tokens,
+        # top_p=top_p,
+        # stop=[stop_token] if stop_token else None,
+        safety_settings=[
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_NONE",
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH",
+                "threshold": "BLOCK_NONE",
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_NONE",
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_NONE",
+            },
+        ]
+    )
+    
     answer: str = response["choices"][0]["message"]["content"]
     return answer
 

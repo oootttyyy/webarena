@@ -42,7 +42,7 @@ class PromptConstructor(object):
         """Return the require format for an API"""
         message: list[dict[str, str]] | str
         if "openai" in self.lm_config.provider:
-            if self.lm_config.mode == "chat":
+            if self.lm_config.mode == "chat" or "openai_chat_api":
                 message = [{"role": "system", "content": intro}]
                 for (x, y) in examples:
                     message.append(

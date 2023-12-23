@@ -260,7 +260,7 @@ def test(
                     subprocess.run(
                         [
                             "python",
-                            "browser_env/auto_login.py",
+                            "src/webarena/browser_env/auto_login.py",
                             "--auth_folder",
                             temp_dir,
                             "--site_list",
@@ -347,7 +347,7 @@ def test(
                     Path(args.result_dir) / "traces" / f"{task_id}.zip"
                 )
 
-        except openai.error.OpenAIError as e:
+        except openai.OpenAIError as e:
             logger.info(f"[OpenAI Error] {repr(e)}")
         except Exception as e:
             logger.info(f"[Unhandled Error] {repr(e)}]")
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     st_idx = args.test_start_idx
     ed_idx = args.test_end_idx
     for i in range(st_idx, ed_idx):
-        test_file_list.append(f"config_files/{i}.json")
+        test_file_list.append(f"src/webarena/config_files/{i}.json")
     if "debug" not in args.result_dir:
         test_file_list = get_unfinished(test_file_list, args.result_dir)
 

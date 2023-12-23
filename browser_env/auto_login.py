@@ -25,7 +25,7 @@ SITES = ["gitlab", "shopping", "shopping_admin", "reddit"]
 URLS = [
     f"{GITLAB}/-/profile",
     f"{SHOPPING}/wishlist/",
-    f"{SHOPPING_ADMIN}/dashboard",
+    f"{SHOPPING_ADMIN}/admin/dashboard",
     f"{REDDIT}/user/{ACCOUNTS['reddit']['username']}/account",
 ]
 EXACT_MATCH = [True, True, True, True]
@@ -50,11 +50,22 @@ def is_expired(
     content = page.content()
     context_manager.__exit__()
     if keyword:
+        if keyword not in content:
+            print('d_url', d_url)
+            print('url',url)
+            print('content',content)
+            print('keyword',keyword not in content)
         return keyword not in content
     else:
         if url_exact:
+            if d_url != url:
+                print('d_url', d_url)
+                print('url', url)
+                print(d_url != url)
             return d_url != url
         else:
+            if url not in d_url:
+                print('not exact',url not in d_url)
             return url not in d_url
 
 
